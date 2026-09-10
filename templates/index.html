@@ -1,0 +1,308 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>SK hynix 1Y Stock Intelligence</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
+<style>
+:root{
+  --bg:#fff9f9; --card:#ffffff; --ink:#281b1e; --muted:#7a6870;
+  --red:#b01832; --red2:#e1495d; --rose:#ffe4e9; --line:#ead9dd;
+  --green:#13795b; --amber:#a35b00; --shadow:0 12px 36px rgba(111,23,43,.10);
+}
+*{box-sizing:border-box}
+body{margin:0;font-family:Inter,Pretendard,"Noto Sans KR",Arial,sans-serif;background:
+ radial-gradient(circle at 8% 0%,#ffe8ed 0,transparent 26%),
+ radial-gradient(circle at 94% 8%,#fff0f3 0,transparent 24%),var(--bg);color:var(--ink)}
+.decor{position:fixed;z-index:-1;opacity:.22;pointer-events:none;font-size:46px}
+.d1{top:7%;left:2%;transform:rotate(-12deg)} .d2{top:18%;right:2%;font-size:38px}
+.d3{bottom:5%;right:4%;font-size:52px} .d4{bottom:16%;left:1%;font-size:34px}
+.wrap{max-width:1420px;margin:auto;padding:24px}
+.hero{background:linear-gradient(125deg,#7f1026,#c3213d 58%,#eb6576);color:white;border-radius:28px;padding:30px 34px;box-shadow:var(--shadow);position:relative;overflow:hidden}
+.hero:after{content:"✿  🦋  ❀";position:absolute;right:26px;top:19px;font-size:34px;opacity:.45;letter-spacing:12px}
+.eyebrow{font-size:12px;letter-spacing:.16em;text-transform:uppercase;opacity:.8}
+h1{margin:7px 0 8px;font-size:clamp(28px,4vw,48px);line-height:1.04}
+.hero p{margin:0;opacity:.88;max-width:850px;line-height:1.55}
+.grid{display:grid;grid-template-columns:repeat(12,1fr);gap:16px;margin-top:16px}
+.card{background:rgba(255,255,255,.94);border:1px solid rgba(176,24,50,.10);border-radius:22px;padding:20px;box-shadow:var(--shadow)}
+.kpi{grid-column:span 3}.chart-card{grid-column:span 8}.control-card{grid-column:span 4}.wide{grid-column:1/-1}
+.label{font-size:12px;color:var(--muted);font-weight:700;letter-spacing:.04em}
+.value{font-size:28px;font-weight:850;margin-top:6px}
+.sub{font-size:13px;color:var(--muted);margin-top:5px;line-height:1.45}
+.pos{color:var(--red)} .neg{color:#245d8c}
+.tabs{display:flex;gap:8px;flex-wrap:wrap;margin:18px 0 2px}
+.tab{border:0;border-radius:999px;padding:10px 16px;background:#f5e7ea;color:#6d3440;font-weight:750;cursor:pointer}
+.tab.active{background:var(--red);color:white;box-shadow:0 6px 16px rgba(176,24,50,.22)}
+canvas{width:100%!important;height:420px!important}
+.ctrl{margin:17px 0}
+.ctrl-head{display:flex;justify-content:space-between;gap:10px;font-size:13px;font-weight:700}
+input[type=range]{width:100%;accent-color:var(--red);margin-top:8px}
+.btn{border:1px solid #dca8b3;background:white;border-radius:12px;padding:9px 12px;font-weight:750;color:#7f1026;cursor:pointer}
+.method-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-top:14px}
+.method{border-radius:16px;padding:14px;background:#fff6f7;border:1px solid #f1d8dd}
+.method b{font-size:14px}.method small{display:block;color:var(--muted);line-height:1.45;margin-top:5px}
+.scorebox{display:grid;grid-template-columns:240px 1fr;gap:18px;align-items:center}
+.signal{text-align:center;border-radius:20px;padding:22px;background:linear-gradient(145deg,#fff0f3,#fff);border:1px solid #ecc1ca}
+.signal .pill{display:inline-block;padding:7px 12px;border-radius:999px;font-size:13px;font-weight:800;margin-bottom:7px}
+.signal h2{font-size:28px;margin:4px 0}
+.reasons{display:grid;grid-template-columns:repeat(2,1fr);gap:10px}
+.reason{padding:12px;border-radius:14px;background:#faf5f6;font-size:13px;line-height:1.45}
+.stats{display:grid;grid-template-columns:repeat(5,1fr);gap:10px;margin-top:14px}
+.stat{padding:13px;border:1px solid var(--line);border-radius:14px}.stat strong{display:block;font-size:18px;margin-top:4px}
+.news-head{display:flex;align-items:end;justify-content:space-between;gap:20px}
+.newslist{display:grid;grid-template-columns:repeat(2,1fr);gap:12px;margin-top:14px}
+.news{padding:16px;border:1px solid var(--line);border-radius:17px;background:white}
+.news-top{display:flex;justify-content:space-between;gap:10px;font-size:12px;color:var(--muted)}
+.tag{background:var(--rose);color:#8c1530;border-radius:999px;padding:4px 8px;font-weight:750}
+.news h3{font-size:15px;margin:10px 0 7px;line-height:1.4}
+.news p{font-size:13px;color:var(--muted);line-height:1.5;margin:0 0 10px}
+.news a{font-size:13px;color:var(--red);font-weight:800;text-decoration:none}
+.foot{font-size:12px;color:var(--muted);line-height:1.55;margin:18px 4px 30px}
+@media(max-width:980px){.kpi{grid-column:span 6}.chart-card,.control-card{grid-column:1/-1}.method-grid{grid-template-columns:1fr 1fr}.scorebox{grid-template-columns:1fr}.stats{grid-template-columns:repeat(2,1fr)}}
+@media(max-width:620px){.wrap{padding:12px}.hero{padding:24px 20px}.kpi{grid-column:1/-1}.method-grid,.reasons,.newslist{grid-template-columns:1fr}.stats{grid-template-columns:1fr 1fr}canvas{height:330px!important}}
+</style>
+</head>
+<body>
+<div class="decor d1">🌺</div><div class="decor d2">🦋</div><div class="decor d3">🌸</div><div class="decor d4">🦋</div>
+<div class="wrap">
+  <section class="hero">
+    <div class="eyebrow">SK hynix · 1 year stock intelligence</div>
+    <h1>SK하이닉스 주가 분석 대시보드</h1>
+    <p>페이지를 열 때마다 KRX에서 <b>현재일 기준 최근 1년</b>의 SK하이닉스 시세를 다시 조회합니다. 휴장일에는 가장 최근 거래일까지 표시하며, 모든 분석값과 뉴스 목록도 최신 데이터에 맞춰 갱신합니다.</p>
+  </section>
+
+  <div class="tabs">
+    <button class="tab active" data-mode="daily">일간 전체</button>
+    <button class="tab" data-mode="weekly">주간 분석</button>
+    <button class="tab" data-mode="monthly">월간 분석</button>
+  </div>
+
+  <div class="grid">
+    <div class="card kpi"><div class="label">선택기간 마지막 종가</div><div class="value" id="lastClose">-</div><div class="sub" id="lastDate">-</div></div>
+    <div class="card kpi"><div class="label">기간 누적 수익률</div><div class="value" id="periodReturn">-</div><div class="sub">첫 종가 → 마지막 종가</div></div>
+    <div class="card kpi"><div class="label">연환산 변동성</div><div class="value" id="volatility">-</div><div class="sub">일간 수익률 표준편차 × √252</div></div>
+    <div class="card kpi"><div class="label">최대 낙폭(MDD)</div><div class="value" id="mdd">-</div><div class="sub">선택기간 내 고점 대비 최대 하락</div></div>
+
+    <section class="card chart-card">
+      <div class="label">PRICE TREND</div>
+      <h2 style="margin:6px 0 2px">종가 추세</h2>
+      <div class="sub" id="chartCaption">슬라이더로 표시 기간과 가격축을 조절할 수 있습니다.</div>
+      <canvas id="priceChart"></canvas>
+    </section>
+
+    <aside class="card control-card">
+      <div class="label">AXIS CONTROLS</div>
+      <h2 style="margin:6px 0 4px">축 범위 조절</h2>
+      <div class="ctrl"><div class="ctrl-head"><span>X축 시작</span><span id="xStartText"></span></div><input id="xStart" type="range"></div>
+      <div class="ctrl"><div class="ctrl-head"><span>X축 종료</span><span id="xEndText"></span></div><input id="xEnd" type="range"></div>
+      <div class="ctrl"><div class="ctrl-head"><span>Y축 최소</span><span id="yMinText"></span></div><input id="yMin" type="range" step="10"></div>
+      <div class="ctrl"><div class="ctrl-head"><span>Y축 최대</span><span id="yMaxText"></span></div><input id="yMax" type="range" step="10"></div>
+      <button class="btn" id="resetAxes">축 범위 초기화</button>
+      <div class="sub" style="margin-top:13px">주/월 탭에서는 X축 범위를 유지하되 기간별 마지막 거래일 종가로 재집계합니다.</div>
+    </aside>
+
+    <section class="card wide">
+      <div class="label">STATISTICAL ANALYSIS</div>
+      <h2 style="margin:6px 0 2px">선택 기간 수치 분석</h2>
+      <div class="stats">
+        <div class="stat"><span class="label">20기간 모멘텀</span><strong id="mom20">-</strong></div>
+        <div class="stat"><span class="label">RSI(14)</span><strong id="rsi">-</strong></div>
+        <div class="stat"><span class="label">SMA20 대비</span><strong id="smaGap">-</strong></div>
+        <div class="stat"><span class="label">로그추세 R²</span><strong id="trendR2">-</strong></div>
+        <div class="stat"><span class="label">상승 기간 비율</span><strong id="hitRate">-</strong></div>
+      </div>
+      <div class="method-grid">
+        <div class="method"><b>로그 선형회귀</b><small>가격은 비율로 움직이므로 log(종가)를 시간에 회귀해 추세 방향과 일관성(R²)을 평가합니다.</small></div>
+        <div class="method"><b>실현 변동성</b><small>일간 수익률 표준편차를 연율화해 가격 흔들림의 크기를 측정합니다. 수익률이 같아도 변동성이 높으면 리스크가 큽니다.</small></div>
+        <div class="method"><b>Maximum Drawdown</b><small>선택기간 고점에서 이후 저점까지의 최대 손실폭을 계산해 실제 체감 하방위험을 보여줍니다.</small></div>
+        <div class="method"><b>SMA20 / SMA60</b><small>단기·중기 이동평균의 위치관계로 추세 전환과 중기 방향성을 비교합니다.</small></div>
+        <div class="method"><b>RSI(14)</b><small>최근 상승·하락 압력의 균형을 0~100으로 정규화해 과열·침체 가능성을 보조 판단합니다.</small></div>
+        <div class="method"><b>기간 상승률(Hit rate)</b><small>주/월 탭에서는 각 기간 수익률이 플러스였던 비율로 추세의 반복성을 확인합니다.</small></div>
+      </div>
+    </section>
+
+    <section class="card wide">
+      <div class="scorebox">
+        <div class="signal">
+          <div class="pill" id="signalPill">규칙 기반</div>
+          <div class="label">현재 구매 판단</div>
+          <h2 id="signalText">-</h2>
+          <div class="sub" id="signalScore">-</div>
+        </div>
+        <div>
+          <div class="label">CORE REASONS</div>
+          <h2 style="margin:6px 0 10px">핵심 판단 근거</h2>
+          <div class="reasons" id="reasons"></div>
+        </div>
+      </div>
+    </section>
+
+    <section class="card wide">
+      <div class="news-head">
+        <div><div class="label">NEWS & CATALYSTS</div><h2 style="margin:6px 0 2px">선택 기간 주요 이슈</h2><div class="sub">차트의 선택 기간 안에 있는 뉴스만 자동 표시됩니다.</div></div>
+        <div class="sub" id="newsCount"></div>
+      </div>
+      <div class="newslist" id="newsList"></div>
+    </section>
+  </div>
+
+  <div class="foot">
+    ※ 투자 판단 보조용 분석입니다. 수익을 보장하지 않으며, KRX Data Marketplace의 개별종목 시세를 현재일 기준 최근 1년으로 자동 조회합니다. KRX 점검·차단·응답형식 변경 시 일시적으로 최신 조회가 실패할 수 있습니다.<br>
+    ※ “구매 추천/비추천”은 재무가치평가가 아니라 현재 데이터의 기술적·통계적 상태를 정해진 규칙으로 분류한 결과입니다. 실제 투자에는 실적 전망, 밸류에이션, 환율, 메모리 가격, AI CAPEX, 증자/ADR 희석 등 별도 검토가 필요합니다.
+  </div>
+</div>
+
+<script>
+let RAW = [];
+let NEWS = [];
+const FMT = new Intl.NumberFormat('ko-KR',{maximumFractionDigits:2});
+let mode='daily', chart;
+
+function mean(a){return a.length?a.reduce((x,y)=>x+y,0)/a.length:NaN}
+function stdev(a){if(a.length<2)return NaN; const m=mean(a); return Math.sqrt(a.reduce((s,x)=>s+(x-m)**2,0)/(a.length-1))}
+function returns(arr){const out=[];for(let i=1;i<arr.length;i++)out.push(arr[i].close/arr[i-1].close-1);return out}
+function aggregate(arr, kind){
+  if(kind==='daily') return arr.map(x=>({...x,label:x.date}));
+  const m=new Map();
+  arr.forEach(x=>{
+    const d=new Date(x.date+'T00:00:00');
+    let key;
+    if(kind==='monthly') key=x.date.slice(0,7);
+    else{
+      const z=new Date(d); const day=(z.getDay()+6)%7; z.setDate(z.getDate()-day);
+      key=z.toISOString().slice(0,10);
+    }
+    if(!m.has(key)) m.set(key,[]);
+    m.get(key).push(x);
+  });
+  return [...m.entries()].map(([key,v])=>{
+    v.sort((a,b)=>a.date.localeCompare(b.date));
+    const first=v[0],last=v[v.length-1];
+    return {date:last.date,label:kind==='monthly'?key:key+' 주',close:last.close,
+      pct:(last.close/first.close-1)*100, open:first.open, high:Math.max(...v.map(q=>q.high??q.close)),
+      low:Math.min(...v.map(q=>q.low??q.close)), volume:v.reduce((s,q)=>s+(q.volume||0),0)};
+  });
+}
+function rsi(arr,n=14){
+  if(arr.length<n+1)return NaN; const rr=returns(arr).slice(-n);
+  const g=mean(rr.map(x=>Math.max(x,0))), l=mean(rr.map(x=>Math.max(-x,0)));
+  return l===0?100:100-100/(1+g/l);
+}
+function mdd(arr){
+  let peak=-Infinity, worst=0;
+  for(const x of arr){peak=Math.max(peak,x.close);worst=Math.min(worst,x.close/peak-1)}
+  return worst*100;
+}
+function regression(arr){
+  if(arr.length<3)return {r2:NaN,slope:NaN};
+  const ys=arr.map(x=>Math.log(x.close)), xs=arr.map((_,i)=>i), xm=mean(xs), ym=mean(ys);
+  let num=0,den=0; xs.forEach((x,i)=>{num+=(x-xm)*(ys[i]-ym);den+=(x-xm)**2});
+  const b=num/den,a=ym-b*xm; let ssr=0,sst=0;
+  xs.forEach((x,i)=>{const yp=a+b*x;ssr+=(ys[i]-yp)**2;sst+=(ys[i]-ym)**2});
+  return {r2:sst?1-ssr/sst:0,slope:b};
+}
+function fmtPct(v){return Number.isFinite(v)?`${v>=0?'+':''}${v.toFixed(1)}%`:'-'}
+function colorClass(v){return v>=0?'pos':'neg'}
+function periodData(){
+  const s=Math.min(+xStart.value,+xEnd.value-1),e=Math.max(+xEnd.value,+xStart.value+1);
+  return RAW.slice(s,e+1);
+}
+function recommendation(arr){
+  const n=arr.length,last=arr[n-1].close;
+  const s20=mean(arr.slice(-Math.min(20,n)).map(x=>x.close));
+  const s60=mean(arr.slice(-Math.min(60,n)).map(x=>x.close));
+  const mom20=n>20?(last/arr[n-21].close-1)*100:NaN;
+  const mom60=n>60?(last/arr[n-61].close-1)*100:NaN;
+  const r=rsi(arr), vol=stdev(returns(arr))*Math.sqrt(252)*100;
+  let score=0, reasons=[];
+  if(last>s20){score++;reasons.push(['긍정','현재 종가가 SMA20 위에 있어 단기 추세는 회복 방향입니다.'])}
+  else{score--;reasons.push(['부정','현재 종가가 SMA20 아래여서 단기 추세가 약합니다.'])}
+  if(n>=60){
+    if(s20>s60){score++;reasons.push(['긍정','SMA20이 SMA60 위라 중기 추세 구조가 우호적입니다.'])}
+    else{score--;reasons.push(['주의','SMA20이 SMA60 아래라 중기 추세 확인이 아직 필요합니다.'])}
+  }
+  if(Number.isFinite(mom20)){
+    if(mom20>0){score++;reasons.push(['긍정',`최근 20거래일 모멘텀이 ${fmtPct(mom20)}로 반등세가 있습니다.`])}
+    else{score--;reasons.push(['부정',`최근 20거래일 모멘텀이 ${fmtPct(mom20)}입니다.`])}
+  }
+  if(Number.isFinite(r)){
+    if(r>75){score--;reasons.push(['주의',`RSI ${r.toFixed(1)}로 단기 과열권에 가깝습니다.`])}
+    else if(r>=45&&r<=70){score++;reasons.push(['긍정',`RSI ${r.toFixed(1)}로 추세 유지에 비교적 무리가 적은 구간입니다.`])}
+  }
+  if(Number.isFinite(vol)&&vol>60){score--;reasons.push(['리스크',`연환산 변동성 ${vol.toFixed(1)}%로 매우 높아 손실폭 관리가 중요합니다.`])}
+  if(Number.isFinite(mom60)){if(mom60>0)score++;else score--;}
+  let text, tone;
+  if(score>=2){text='분할매수 추천';tone='positive'}
+  else if(score<=-2){text='구매 비추천';tone='risk'}
+  else{text='관망 / 중립';tone='mixed'}
+  return {score,text,tone,reasons:reasons.slice(0,6)};
+}
+function update(){
+  const base=periodData(), agg=aggregate(base,mode), rr=returns(base), last=base[base.length-1], first=base[0];
+  const vol=stdev(rr)*Math.sqrt(252)*100, ret=(last.close/first.close-1)*100, dd=mdd(base), rg=regression(base);
+  const r=rsi(base), s20=mean(base.slice(-Math.min(20,base.length)).map(x=>x.close));
+  const mom20=base.length>20?(last.close/base[base.length-21].close-1)*100:NaN;
+  const periodR=returns(agg), hit=periodR.length?periodR.filter(x=>x>0).length/periodR.length*100:NaN;
+
+  lastClose.textContent=FMT.format(last.close); lastDate.textContent=last.date;
+  periodReturn.textContent=fmtPct(ret); periodReturn.className='value '+colorClass(ret);
+  volatility.textContent=Number.isFinite(vol)?vol.toFixed(1)+'%':'-';
+  mdd.textContent=fmtPct(dd); mdd.className='value neg';
+  mom20.textContent=fmtPct(mom20); mom20.className=colorClass(mom20);
+  rsi.textContent=Number.isFinite(r)?r.toFixed(1):'-';
+  smaGap.textContent=fmtPct((last.close/s20-1)*100);
+  trendR2.textContent=Number.isFinite(rg.r2)?rg.r2.toFixed(3):'-';
+  hitRate.textContent=Number.isFinite(hit)?hit.toFixed(1)+'%':'-';
+
+  const labels=agg.map(x=>x.label), values=agg.map(x=>x.close);
+  const ymin=+yMin.value,ymax=+yMax.value;
+  if(chart)chart.destroy();
+  chart=new Chart(document.getElementById('priceChart'),{
+    type:'line',data:{labels,datasets:[{label:'종가',data:values,borderColor:'#b01832',backgroundColor:'rgba(176,24,50,.10)',fill:true,borderWidth:2.4,pointRadius:mode==='daily'?0:2,tension:.2}]},
+    options:{responsive:true,maintainAspectRatio:false,interaction:{mode:'index',intersect:false},
+      plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>' 종가 '+FMT.format(c.parsed.y)}}},
+      scales:{x:{grid:{display:false},ticks:{maxTicksLimit:10,color:'#7a6870'}},
+              y:{min:ymin,max:ymax,grid:{color:'rgba(120,80,90,.09)'},ticks:{color:'#7a6870',callback:v=>FMT.format(v)}}}}
+  });
+  chartCaption.textContent=`${first.date} ~ ${last.date} · ${mode==='daily'?'일간':mode==='weekly'?'주간':'월간'} ${agg.length}개 관측치`;
+
+  const rec=recommendation(base);
+  signalText.textContent=rec.text; signalScore.textContent=`종합 점수 ${rec.score>=0?'+':''}${rec.score} · 기술/통계 규칙 기반`;
+  signalPill.textContent=rec.tone==='positive'?'BUY BIAS':rec.tone==='risk'?'RISK OFF':'WAIT';
+  signalPill.style.background=rec.tone==='positive'?'#dff5eb':rec.tone==='risk'?'#ffe1e6':'#fff0cf';
+  signalPill.style.color=rec.tone==='positive'?'#13795b':rec.tone==='risk'?'#a4142e':'#8a5600';
+  reasons.innerHTML=rec.reasons.map(([a,b])=>`<div class="reason"><b>${a}</b><br>${b}</div>`).join('');
+
+  const ns=NEWS.filter(n=>n.date>=first.date&&n.date<=last.date);
+  newsCount.textContent=`${ns.length}건`;
+  newsList.innerHTML=ns.length?ns.slice().reverse().map(n=>`<article class="news">
+    <div class="news-top"><span>${n.date} · ${n.source}</span><span class="tag">${n.tag}</span></div>
+    <h3>${n.title}</h3><p>${n.summary}</p><a href="${n.url}" target="_blank" rel="noopener">원문 링크 ↗</a>
+  </article>`).join(''):`<div class="sub">선택한 기간에 등록된 주요 이슈가 없습니다.</div>`;
+}
+const xStart=document.getElementById('xStart'),xEnd=document.getElementById('xEnd'),yMin=document.getElementById('yMin'),yMax=document.getElementById('yMax');
+const allMin=Math.floor(Math.min(...RAW.map(x=>x.close))*0.85),allMax=Math.ceil(Math.max(...RAW.map(x=>x.close))*1.08);
+function initAxes(){
+  xStart.min=0;xStart.max=RAW.length-2;xStart.value=0;xEnd.min=1;xEnd.max=RAW.length-1;xEnd.value=RAW.length-1;
+  yMin.min=0;yMin.max=allMax-100;yMin.value=allMin;yMax.min=100;yMax.max=allMax*1.15;yMax.value=allMax;
+}
+function syncTexts(){xStartText.textContent=RAW[+xStart.value].date;xEndText.textContent=RAW[+xEnd.value].date;yMinText.textContent=FMT.format(+yMin.value);yMaxText.textContent=FMT.format(+yMax.value)}
+[xStart,xEnd,yMin,yMax].forEach(el=>el.addEventListener('input',()=>{
+  if(+xStart.value>=+xEnd.value){if(el===xStart)xStart.value=+xEnd.value-1;else xEnd.value=+xStart.value+1}
+  if(+yMin.value>=+yMax.value-10){if(el===yMin)yMin.value=+yMax.value-10;else yMax.value=+yMin.value+10}
+  syncTexts();update();
+}));
+document.getElementById('resetAxes').onclick=()=>{initAxes();syncTexts();update()};
+document.querySelectorAll('.tab').forEach(b=>b.onclick=()=>{document.querySelectorAll('.tab').forEach(x=>x.classList.remove('active'));b.classList.add('active');mode=b.dataset.mode;update()});
+fetch('/api/data').then(r=>{if(!r.ok) throw new Error('HTTP '+r.status); return r.json();}).then(d=>{
+  RAW=d.rows||[]; NEWS=d.news||[];
+  if(!RAW.length) throw new Error('KRX 데이터가 비어 있습니다.');
+  document.querySelector('.eyebrow').textContent=`KRX LIVE · ${d.requested_start} ~ ${d.requested_end} · 최종 거래일 ${d.last_trade_date}`;
+  initAxes();syncTexts();update();
+}).catch(e=>{
+  document.body.insertAdjacentHTML('afterbegin',`<div style=\"position:sticky;top:0;z-index:99;background:#8d1830;color:white;padding:12px 18px;text-align:center;font-family:sans-serif\">최신 KRX 데이터 조회 실패: ${e.message}</div>`);
+});
+</script>
+</body>
+</html>
