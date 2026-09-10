@@ -98,7 +98,7 @@ input[type=range]{width:100%;accent-color:var(--red);margin-top:8px}
       <div class="ctrl"><div class="ctrl-head"><span>X축 종료</span><span id="xEndText"></span></div><input id="xEnd" type="range"></div>
       <div class="ctrl"><div class="ctrl-head"><span>Y축 최소</span><span id="yMinText"></span></div><input id="yMin" type="range" step="10"></div>
       <div class="ctrl"><div class="ctrl-head"><span>Y축 최대</span><span id="yMaxText"></span></div><input id="yMax" type="range" step="10"></div>
-      <button class="btn" id="resetAxes">축 범위 초기화</button>
+      <button class="btn" id="resetAxes">축 범위 초기화</button><div class="sub" style="margin-top:12px">초기 화면은 최근 1년 전체 주가의 최저~최고값이 한 번에 보이도록 Y축을 자동 설정합니다.</div>
       <div class="sub" style="margin-top:13px">주/월 탭에서는 X축 범위를 유지하되 기간별 마지막 거래일 종가로 재집계합니다.</div>
     </aside>
 
@@ -282,18 +282,77 @@ function update(){
   </article>`).join(''):`<div class="sub">선택한 기간에 등록된 주요 이슈가 없습니다.</div>`;
 }
 const xStart=document.getElementById('xStart'),xEnd=document.getElementById('xEnd'),yMin=document.getElementById('yMin'),yMax=document.getElementById('yMax');
-const allMin=Math.floor(Math.min(...RAW.map(x=>x.close))*0.85),allMax=Math.ceil(Math.max(...RAW.map(x=>x.close))*1.08);
-function initAxes(){
-  xStart.min=0;xStart.max=RAW.length-2;xStart.value=0;xEnd.min=1;xEnd.max=RAW.length-1;xEnd.value=RAW.length-1;
-  yMin.min=0;yMin.max=allMax-100;yMin.value=allMin;yMax.min=100;yMax.max=allMax*1.15;yMax.value=allMax;
+
+function niceStep(range){
+  if(!Number.isFinite(range) || range<=0) return 1000;
+  const raw=range/120;
+  const pow=Math.pow(10,Math.floor(Math.log10(raw)));
+  const n=raw/pow;
+  const nice=n<=1?1:n<=2?2:n<=5?5:10;
+  return Math.max(1,nice*pow);
 }
-function syncTexts(){xStartText.textContent=RAW[+xStart.value].date;xEndText.textContent=RAW[+xEnd.value].date;yMinText.textContent=FMT.format(+yMin.value);yMaxText.textContent=FMT.format(+yMax.value)}
+
+function initAxes(){
+  // IMPORTANT: RAW is populated asynchronously, so calculate ranges only here.
+  const closes=RAW.map(x=>Number(x.close)).filter(Number.isFinite);
+  if(closes.length<2) return;
+
+  const dataMin=Math.min(...closes);
+  const dataMax=Math.max(...closes);
+  const priceRange=Math.max(dataMax-dataMin, Math.abs(dataMax)*0.05, 1);
+  const pad=priceRange*0.05; // 5% visual breathing room
+  const step=niceStep(priceRange);
+
+  // Initial X axis: full rolling 1-year period.
+  xStart.min=0;
+  xStart.max=RAW.length-2;
+  xStart.value=0;
+  xEnd.min=1;
+  xEnd.max=RAW.length-1;
+  xEnd.value=RAW.length-1;
+
+  // Initial Y axis: show ALL observed prices at once, plus 5% top/bottom padding.
+  const initialMin=Math.max(0, Math.floor((dataMin-pad)/step)*step);
+  const initialMax=Math.ceil((dataMax+pad)/step)*step;
+
+  // Slider travel range is wider than the initial chart range, so users can zoom manually.
+  yMin.step=step;
+  yMax.step=step;
+  yMin.min=Math.max(0, Math.floor((dataMin-priceRange*0.60)/step)*step);
+  yMin.max=Math.max(yMin.min+step, Math.floor((dataMax-step)/step)*step);
+  yMin.value=initialMin;
+
+  yMax.min=Math.max(step, Math.ceil((dataMin+step)/step)*step);
+  yMax.max=Math.ceil((dataMax+priceRange*0.60)/step)*step;
+  yMax.value=initialMax;
+}
+
+function syncTexts(){
+  xStartText.textContent=RAW[+xStart.value]?.date || '-';
+  xEndText.textContent=RAW[+xEnd.value]?.date || '-';
+  yMinText.textContent=FMT.format(+yMin.value);
+  yMaxText.textContent=FMT.format(+yMax.value);
+}
+
 [xStart,xEnd,yMin,yMax].forEach(el=>el.addEventListener('input',()=>{
-  if(+xStart.value>=+xEnd.value){if(el===xStart)xStart.value=+xEnd.value-1;else xEnd.value=+xStart.value+1}
-  if(+yMin.value>=+yMax.value-10){if(el===yMin)yMin.value=+yMax.value-10;else yMax.value=+yMin.value+10}
-  syncTexts();update();
+  if(+xStart.value>=+xEnd.value){
+    if(el===xStart)xStart.value=+xEnd.value-1;
+    else xEnd.value=+xStart.value+1;
+  }
+  const minGap=Math.max(1, Number(yMin.step)||1);
+  if(+yMin.value>=+yMax.value-minGap){
+    if(el===yMin)yMin.value=+yMax.value-minGap;
+    else yMax.value=+yMin.value+minGap;
+  }
+  syncTexts();
+  update();
 }));
-document.getElementById('resetAxes').onclick=()=>{initAxes();syncTexts();update()};
+
+document.getElementById('resetAxes').onclick=()=>{
+  initAxes();
+  syncTexts();
+  update();
+};
 document.querySelectorAll('.tab').forEach(b=>b.onclick=()=>{document.querySelectorAll('.tab').forEach(x=>x.classList.remove('active'));b.classList.add('active');mode=b.dataset.mode;update()});
 fetch('/api/data').then(r=>{if(!r.ok) throw new Error('HTTP '+r.status); return r.json();}).then(d=>{
   RAW=d.rows||[]; NEWS=d.news||[];
