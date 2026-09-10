@@ -51,6 +51,10 @@ input[type=range]{width:100%;accent-color:var(--red);margin-top:8px}
 .stats{display:grid;grid-template-columns:repeat(5,1fr);gap:10px;margin-top:14px}
 .stat{padding:13px;border:1px solid var(--line);border-radius:14px}.stat strong{display:block;font-size:18px;margin-top:4px}
 .news-head{display:flex;align-items:end;justify-content:space-between;gap:20px}
+.news-month-tabs{display:flex;gap:7px;flex-wrap:wrap;margin-top:14px;padding-bottom:2px}
+.news-month-tab{border:1px solid #ead9dd;background:#fff;color:#76515a;border-radius:999px;padding:7px 11px;font-size:12px;font-weight:800;cursor:pointer}
+.news-month-tab:hover{border-color:#d69aa7}
+.news-month-tab.active{background:var(--red);border-color:var(--red);color:#fff;box-shadow:0 5px 13px rgba(176,24,50,.18)}
 .newslist{display:grid;grid-template-columns:repeat(2,1fr);gap:12px;margin-top:14px}
 .news{padding:16px;border:1px solid var(--line);border-radius:17px;background:white}
 .news-top{display:flex;justify-content:space-between;gap:10px;font-size:12px;color:var(--muted)}
@@ -106,8 +110,8 @@ input[type=range]{width:100%;accent-color:var(--red);margin-top:8px}
       <div class="label">STATISTICAL ANALYSIS</div>
       <h2 style="margin:6px 0 2px">선택 기간 수치 분석</h2>
       <div class="stats">
-        <div class="stat"><span class="label">20기간 모멘텀</span><strong id="mom20">-</strong></div>
-        <div class="stat"><span class="label">RSI(14)</span><strong id="rsi">-</strong></div>
+        <div class="stat"><span class="label">20거래일 모멘텀</span><strong id="mom20">-</strong><div class="sub" id="mom20Hint">최근 20거래일 수익률</div></div>
+        <div class="stat"><span class="label">RSI(14)</span><strong id="rsi">-</strong><div class="sub" id="rsiHint">최근 14거래일 상승·하락 압력</div></div>
         <div class="stat"><span class="label">SMA20 대비</span><strong id="smaGap">-</strong></div>
         <div class="stat"><span class="label">로그추세 R²</span><strong id="trendR2">-</strong></div>
         <div class="stat"><span class="label">상승 기간 비율</span><strong id="hitRate">-</strong></div>
@@ -143,6 +147,7 @@ input[type=range]{width:100%;accent-color:var(--red);margin-top:8px}
         <div><div class="label">NEWS & CATALYSTS</div><h2 style="margin:6px 0 2px">선택 기간 주요 이슈</h2><div class="sub">차트의 선택 기간 안에 있는 뉴스만 자동 표시됩니다.</div></div>
         <div class="sub" id="newsCount"></div>
       </div>
+      <div class="news-month-tabs" id="newsMonthTabs"></div>
       <div class="newslist" id="newsList"></div>
     </section>
   </div>
@@ -158,6 +163,15 @@ let RAW = [];
 let NEWS = [];
 const FMT = new Intl.NumberFormat('ko-KR',{maximumFractionDigits:2});
 let mode='daily', chart;
+let selectedNewsMonth = null;
+
+const mom20El = document.getElementById('mom20');
+const rsiEl = document.getElementById('rsi');
+const mom20HintEl = document.getElementById('mom20Hint');
+const rsiHintEl = document.getElementById('rsiHint');
+const newsMonthTabsEl = document.getElementById('newsMonthTabs');
+const newsListEl = document.getElementById('newsList');
+const newsCountEl = document.getElementById('newsCount');
 
 function mean(a){return a.length?a.reduce((x,y)=>x+y,0)/a.length:NaN}
 function stdev(a){if(a.length<2)return NaN; const m=mean(a); return Math.sqrt(a.reduce((s,x)=>s+(x-m)**2,0)/(a.length-1))}
@@ -238,6 +252,54 @@ function recommendation(arr){
   else{text='관망 / 중립';tone='mixed'}
   return {score,text,tone,reasons:reasons.slice(0,6)};
 }
+
+function renderNews(firstDate,lastDate){
+  const inRange=NEWS
+    .filter(n=>n.date>=firstDate&&n.date<=lastDate)
+    .slice()
+    .sort((a,b)=>b.date.localeCompare(a.date));
+
+  const months=[...new Set(inRange.map(n=>n.date.slice(0,7)))].sort().reverse();
+
+  // First load or if the selected chart range no longer includes the chosen month:
+  // default to the newest month so the section stays compact.
+  if(!selectedNewsMonth || (selectedNewsMonth!=='all' && !months.includes(selectedNewsMonth))){
+    selectedNewsMonth=months[0] || 'all';
+  }
+
+  const monthLabel=m=>{
+    if(m==='all') return '전체';
+    const [y,mo]=m.split('-');
+    return `${y}.${Number(mo)}월`;
+  };
+
+  const tabs=['all',...months];
+  newsMonthTabsEl.innerHTML=tabs.map(m=>
+    `<button class="news-month-tab ${selectedNewsMonth===m?'active':''}" data-news-month="${m}">${monthLabel(m)}</button>`
+  ).join('');
+
+  newsMonthTabsEl.querySelectorAll('.news-month-tab').forEach(btn=>{
+    btn.onclick=()=>{
+      selectedNewsMonth=btn.dataset.newsMonth;
+      renderNews(firstDate,lastDate);
+    };
+  });
+
+  const shown=selectedNewsMonth==='all'
+    ? inRange
+    : inRange.filter(n=>n.date.slice(0,7)===selectedNewsMonth);
+
+  newsCountEl.textContent = selectedNewsMonth==='all'
+    ? `전체 ${inRange.length}건`
+    : `${monthLabel(selectedNewsMonth)} · ${shown.length}건 / 전체 ${inRange.length}건`;
+
+  newsListEl.innerHTML=shown.length?shown.map(n=>`<article class="news">
+    <div class="news-top"><span>${n.date} · ${n.source}</span><span class="tag">${n.tag}</span></div>
+    <h3>${n.title}</h3><p>${n.summary||'접속 시점 기준 자동 수집된 SK하이닉스 관련 뉴스입니다.'}</p>
+    <a href="${n.url}" target="_blank" rel="noopener">원문 링크 ↗</a>
+  </article>`).join(''):`<div class="sub">이 달에는 등록된 주요 이슈가 없습니다.</div>`;
+}
+
 function update(){
   const base=periodData(), agg=aggregate(base,mode), rr=returns(base), last=base[base.length-1], first=base[0];
   const vol=stdev(rr)*Math.sqrt(252)*100, ret=(last.close/first.close-1)*100, dd=mdd(base), rg=regression(base);
@@ -249,8 +311,25 @@ function update(){
   periodReturn.textContent=fmtPct(ret); periodReturn.className='value '+colorClass(ret);
   volatility.textContent=Number.isFinite(vol)?vol.toFixed(1)+'%':'-';
   mdd.textContent=fmtPct(dd); mdd.className='value neg';
-  mom20.textContent=fmtPct(mom20); mom20.className=colorClass(mom20);
-  rsi.textContent=Number.isFinite(r)?r.toFixed(1):'-';
+  if(Number.isFinite(mom20)){
+    mom20El.textContent=fmtPct(mom20);
+    mom20El.className=colorClass(mom20);
+    mom20HintEl.textContent='현재 종가 vs 20거래일 전 종가';
+  }else{
+    mom20El.textContent='데이터 부족';
+    mom20El.className='';
+    mom20HintEl.textContent='계산에 최소 21거래일 필요';
+  }
+
+  if(Number.isFinite(r)){
+    rsiEl.textContent=r.toFixed(1);
+    rsiEl.className=r>=70?'pos':r<=30?'neg':'';
+    rsiHintEl.textContent=r>=70?'과매수 주의 구간':r<=30?'과매도 가능 구간':'중립 범위';
+  }else{
+    rsiEl.textContent='데이터 부족';
+    rsiEl.className='';
+    rsiHintEl.textContent='계산에 최소 15거래일 필요';
+  }
   smaGap.textContent=fmtPct((last.close/s20-1)*100);
   trendR2.textContent=Number.isFinite(rg.r2)?rg.r2.toFixed(3):'-';
   hitRate.textContent=Number.isFinite(hit)?hit.toFixed(1)+'%':'-';
@@ -274,12 +353,7 @@ function update(){
   signalPill.style.color=rec.tone==='positive'?'#13795b':rec.tone==='risk'?'#a4142e':'#8a5600';
   reasons.innerHTML=rec.reasons.map(([a,b])=>`<div class="reason"><b>${a}</b><br>${b}</div>`).join('');
 
-  const ns=NEWS.filter(n=>n.date>=first.date&&n.date<=last.date);
-  newsCount.textContent=`${ns.length}건`;
-  newsList.innerHTML=ns.length?ns.slice().reverse().map(n=>`<article class="news">
-    <div class="news-top"><span>${n.date} · ${n.source}</span><span class="tag">${n.tag}</span></div>
-    <h3>${n.title}</h3><p>${n.summary}</p><a href="${n.url}" target="_blank" rel="noopener">원문 링크 ↗</a>
-  </article>`).join(''):`<div class="sub">선택한 기간에 등록된 주요 이슈가 없습니다.</div>`;
+  renderNews(first.date,last.date);
 }
 const xStart=document.getElementById('xStart'),xEnd=document.getElementById('xEnd'),yMin=document.getElementById('yMin'),yMax=document.getElementById('yMax');
 
