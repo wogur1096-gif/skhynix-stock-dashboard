@@ -168,7 +168,7 @@ input[type=range]{width:100%;accent-color:var(--red);margin-top:8px}
 
 <button class="agent-toggle" id="agentToggle">✦ AI Agent</button>
 <aside class="agent-panel" id="agentPanel" aria-label="SK하이닉스 데이터 AI Agent">
-  <div class="agent-head"><div><h2>SK hynix AI Agent</h2><small>최신 시세·통계·뉴스 질의</small></div><button class="agent-close" id="agentClose" aria-label="닫기">×</button></div>
+  <div class="agent-head"><div><h2>SK hynix AI Agent</h2><small id="agentMode">대화형 분석 Agent</small></div><button class="agent-close" id="agentClose" aria-label="닫기">×</button></div>
   <div class="agent-chat" id="agentChat"><div class="bubble bot">안녕하세요. 대시보드 데이터와 외부 최신 시세를 계산해 답합니다.\n예: “2주 전 종가는?”, “최근 3개월 최고가는?”</div></div>
   <div class="agent-suggestions">
     <button class="suggestion">2주 전 종가는?</button><button class="suggestion">최근 한 달 수익률</button><button class="suggestion">현재 RSI</button><button class="suggestion">최근 주요 뉴스</button>
@@ -457,6 +457,8 @@ fetch('/api/data').then(r=>{if(!r.ok) throw new Error('HTTP '+r.status); return 
 
 const agentPanel=document.getElementById('agentPanel'),agentChat=document.getElementById('agentChat');
 const agentInput=document.getElementById('agentInput'),agentSend=document.getElementById('agentSend');
+const agentMode=document.getElementById('agentMode');
+let agentHistory=[];
 document.getElementById('agentToggle').onclick=()=>{agentPanel.classList.toggle('open');if(agentPanel.classList.contains('open'))agentInput.focus()};
 document.getElementById('agentClose').onclick=()=>agentPanel.classList.remove('open');
 function addBubble(text,type='bot',extra={}){
@@ -468,7 +470,7 @@ function addBubble(text,type='bot',extra={}){
 async function askAgent(question){
   const q=(question||'').trim();if(!q)return;agentPanel.classList.add('open');addBubble(q,'user');agentInput.value='';agentSend.disabled=true;
   const waiting=addBubble('최신 데이터를 확인하고 계산 중입니다…');
-  try{const r=await fetch('/api/ask',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({question:q})});const d=await r.json();waiting.remove();addBubble(d.answer||d.error||'답변을 만들지 못했습니다.','bot',d)}
+  try{const r=await fetch('/api/ask',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({question:q,history:agentHistory.slice(-8)})});const d=await r.json();waiting.remove();const answer=d.answer||d.error||'답변을 만들지 못했습니다.';addBubble(answer,'bot',d);agentHistory.push({role:'user',content:q},{role:'assistant',content:answer});agentHistory=agentHistory.slice(-10);agentMode.textContent=d.agent_mode||'대화형 분석 Agent';if(d.llm_notice)agentMode.title=d.llm_notice}
   catch(e){waiting.textContent='질의 처리 중 오류가 발생했습니다: '+e.message}
   finally{agentSend.disabled=false;agentInput.focus()}
 }
