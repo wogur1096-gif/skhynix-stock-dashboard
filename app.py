@@ -3,6 +3,7 @@ from datetime import date, timedelta, datetime, timezone
 from urllib.parse import quote
 import calendar
 import math
+import os
 import re
 import requests
 import xml.etree.ElementTree as ET
@@ -349,6 +350,61 @@ def answer_question(question, rows, news):
     return {"answer": "현재는 종가·수익률·최고/최저/평균·변동성·MDD·RSI·20거래일 모멘텀·최근 뉴스를 질문할 수 있습니다. 예: ‘2주 전 종가는?’, ‘최근 3개월 최고가는?’", "evidence": evidence}
 
 
+def infer_followup(question, history):
+    """Carry the previous metric into short follow-ups such as '그럼 한 달 전은?'"""
+    q = question.strip()
+    metric_words = ["종가", "수익률", "등락률", "최고가", "최저가", "평균", "변동성", "MDD", "RSI", "모멘텀", "뉴스", "이슈"]
+    if any(word.lower() in q.lower() for word in metric_words):
+        return q
+    prior_users = [x.get("content", "") for x in history if x.get("role") == "user"]
+    if not prior_users:
+        return q
+    previous = prior_users[-1]
+    for word in metric_words:
+        if word.lower() in previous.lower():
+            return f"{q} {word}"
+    return q
+
+
+def groq_chat(question, history, verified):
+    api_key = os.getenv("GROQ_API_KEY", "").strip()
+    if not api_key:
+        raise RuntimeError("GROQ_API_KEY is not configured")
+
+    clean_history = []
+    for item in history[-8:]:
+        role = item.get("role")
+        content = str(item.get("content", ""))[:1200]
+        if role in ("user", "assistant") and content:
+            clean_history.append({"role": role, "content": content})
+
+    system = """당신은 SK하이닉스 주가 분석 웹사이트의 친절한 한국어 AI Agent다.
+인사와 일상적인 대화에는 자연스럽고 짧게 응답한다. 주가 질문은 서버가 제공한 '검증된 계산 결과'를 최우선 사실로 사용한다.
+검증 결과에 없는 가격·날짜·뉴스·수치를 추측하거나 만들어내지 않는다. 부족하면 어떤 질문을 할 수 있는지 자연스럽게 안내한다.
+후속 질문은 대화 기록을 이어서 이해한다. 투자 추천은 단정하지 말고 데이터 기반 참고 의견과 위험을 함께 말한다.
+답변은 보통 2~5문장으로 간결하게 하고, 마크다운 표는 꼭 필요할 때만 쓴다."""
+    context = (
+        "사용자 질문: " + question + "\n"
+        "서버의 검증된 계산 결과: " + str(verified.get("answer", "")) + "\n"
+        "근거: " + ", ".join(f'{x.get("label")}: {x.get("value")}' for x in verified.get("evidence", []))
+    )
+    messages = [{"role": "system", "content": system}, *clean_history, {"role": "user", "content": context}]
+    r = requests.post(
+        "https://api.groq.com/openai/v1/chat/completions",
+        headers={"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"},
+        json={
+            "model": os.getenv("GROQ_MODEL", "openai/gpt-oss-20b"),
+            "messages": messages,
+            "temperature": 0.45,
+            "max_completion_tokens": 450,
+        },
+        timeout=25,
+    )
+    r.raise_for_status()
+    data = r.json()
+    return data["choices"][0]["message"]["content"].strip()
+
+
 @app.get("/")
 def home():
     return render_template("index.html")
@@ -400,14 +456,24 @@ def health():
 def ask():
     payload = request.get_json(silent=True) or {}
     question = str(payload.get("question", ""))[:300]
+    history = payload.get("history", [])
+    if not isinstance(history, list):
+        history = []
     try:
         rows, _, _, source, _ = fetch_market_data()
         try:
             news = fetch_news()
         except Exception:
             news = []
-        result = answer_question(question, rows, news)
-        result.update({"ok": True, "source": source})
+        standalone = infer_followup(question, history)
+        result = answer_question(standalone, rows, news)
+        try:
+            result["answer"] = groq_chat(question, history, result)
+            agent_mode = "Groq · openai/gpt-oss-20b"
+        except Exception as llm_error:
+            agent_mode = "계산형 fallback"
+            result["llm_notice"] = f"무료 대화 모델을 사용할 수 없어 계산형 답변으로 전환했습니다: {type(llm_error).__name__}"
+        result.update({"ok": True, "source": source, "agent_mode": agent_mode})
         return jsonify(result)
     except Exception as e:
         return jsonify({"ok": False, "error": str(e), "answer": "최신 데이터를 불러오지 못해 답변할 수 없습니다."}), 503
