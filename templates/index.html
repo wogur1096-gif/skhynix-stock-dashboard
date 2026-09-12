@@ -63,8 +63,16 @@ input[type=range]{width:100%;accent-color:var(--red);margin-top:8px}
 .news p{font-size:13px;color:var(--muted);line-height:1.5;margin:0 0 10px}
 .news a{font-size:13px;color:var(--red);font-weight:800;text-decoration:none}
 .foot{font-size:12px;color:var(--muted);line-height:1.55;margin:18px 4px 30px}
+.agent-toggle{position:fixed;right:22px;bottom:22px;z-index:30;border:0;border-radius:999px;background:linear-gradient(135deg,#8d1028,#dc4259);color:#fff;padding:14px 19px;font-weight:850;box-shadow:0 12px 30px rgba(111,23,43,.28);cursor:pointer}
+.agent-panel{position:fixed;z-index:29;right:20px;top:20px;bottom:82px;width:min(390px,calc(100vw - 28px));display:flex;flex-direction:column;background:rgba(255,255,255,.98);border:1px solid #edcbd2;border-radius:24px;box-shadow:0 18px 60px rgba(68,12,26,.22);overflow:hidden;transform:translateX(calc(100% + 32px));transition:transform .25s ease}
+.agent-panel.open{transform:translateX(0)}
+.agent-head{padding:17px 18px;background:linear-gradient(130deg,#7f1026,#c3213d);color:#fff;display:flex;justify-content:space-between;align-items:center}
+.agent-head h2{font-size:17px;margin:0}.agent-head small{display:block;opacity:.8;margin-top:3px}.agent-close{border:0;background:rgba(255,255,255,.16);color:#fff;border-radius:50%;width:32px;height:32px;cursor:pointer;font-size:18px}
+.agent-chat{flex:1;overflow:auto;padding:16px;background:#fff9fa}.bubble{max-width:90%;padding:11px 13px;margin:0 0 10px;border-radius:15px;font-size:13px;line-height:1.55;white-space:pre-wrap}.bubble.bot{background:#f6e9ec;border-bottom-left-radius:4px}.bubble.user{margin-left:auto;background:var(--red);color:#fff;border-bottom-right-radius:4px}.agent-evidence{font-size:11px;color:var(--muted);margin-top:7px}.agent-links a{display:block;color:var(--red);font-size:12px;margin-top:6px;text-decoration:none;font-weight:750}
+.agent-suggestions{display:flex;gap:6px;overflow-x:auto;padding:0 14px 10px;background:#fff}.suggestion{white-space:nowrap;border:1px solid #e7c8cf;background:#fff;color:#7f1026;border-radius:999px;padding:7px 9px;font-size:11px;font-weight:750;cursor:pointer}
+.agent-form{display:flex;gap:8px;padding:13px;border-top:1px solid var(--line);background:#fff}.agent-form input{min-width:0;flex:1;border:1px solid #ddc5ca;border-radius:12px;padding:11px 12px;font:inherit;outline:none}.agent-form input:focus{border-color:var(--red)}.agent-send{border:0;background:var(--red);color:#fff;border-radius:12px;padding:0 15px;font-weight:800;cursor:pointer}.agent-send:disabled{opacity:.55}
 @media(max-width:980px){.kpi{grid-column:span 6}.chart-card,.control-card{grid-column:1/-1}.method-grid{grid-template-columns:1fr 1fr}.scorebox{grid-template-columns:1fr}.stats{grid-template-columns:repeat(2,1fr)}}
-@media(max-width:620px){.wrap{padding:12px}.hero{padding:24px 20px}.kpi{grid-column:1/-1}.method-grid,.reasons,.newslist{grid-template-columns:1fr}.stats{grid-template-columns:1fr 1fr}canvas{height:330px!important}}
+@media(max-width:620px){.wrap{padding:12px}.hero{padding:24px 20px}.kpi{grid-column:1/-1}.method-grid,.reasons,.newslist{grid-template-columns:1fr}.stats{grid-template-columns:1fr 1fr}canvas{height:330px!important}.agent-panel{right:14px;top:14px;bottom:76px}.agent-toggle{right:14px;bottom:14px}}
 </style>
 </head>
 <body>
@@ -157,6 +165,16 @@ input[type=range]{width:100%;accent-color:var(--red);margin-top:8px}
     ※ “구매 추천/비추천”은 재무가치평가가 아니라 현재 데이터의 기술적·통계적 상태를 정해진 규칙으로 분류한 결과입니다. 실제 투자에는 실적 전망, 밸류에이션, 환율, 메모리 가격, AI CAPEX, 증자/ADR 희석 등 별도 검토가 필요합니다.
   </div>
 </div>
+
+<button class="agent-toggle" id="agentToggle">✦ AI Agent</button>
+<aside class="agent-panel" id="agentPanel" aria-label="SK하이닉스 데이터 AI Agent">
+  <div class="agent-head"><div><h2>SK hynix AI Agent</h2><small>최신 시세·통계·뉴스 질의</small></div><button class="agent-close" id="agentClose" aria-label="닫기">×</button></div>
+  <div class="agent-chat" id="agentChat"><div class="bubble bot">안녕하세요. 대시보드 데이터와 외부 최신 시세를 계산해 답합니다.\n예: “2주 전 종가는?”, “최근 3개월 최고가는?”</div></div>
+  <div class="agent-suggestions">
+    <button class="suggestion">2주 전 종가는?</button><button class="suggestion">최근 한 달 수익률</button><button class="suggestion">현재 RSI</button><button class="suggestion">최근 주요 뉴스</button>
+  </div>
+  <form class="agent-form" id="agentForm"><input id="agentInput" maxlength="300" autocomplete="off" placeholder="주가 데이터에 대해 질문하세요"><button class="agent-send" id="agentSend">전송</button></form>
+</aside>
 
 <script>
 let RAW = [];
@@ -436,6 +454,26 @@ fetch('/api/data').then(r=>{if(!r.ok) throw new Error('HTTP '+r.status); return 
 }).catch(e=>{
   document.body.insertAdjacentHTML('afterbegin',`<div style=\"position:sticky;top:0;z-index:99;background:#8d1830;color:white;padding:12px 18px;text-align:center;font-family:sans-serif\">최신 KRX 데이터 조회 실패: ${e.message}</div>`);
 });
+
+const agentPanel=document.getElementById('agentPanel'),agentChat=document.getElementById('agentChat');
+const agentInput=document.getElementById('agentInput'),agentSend=document.getElementById('agentSend');
+document.getElementById('agentToggle').onclick=()=>{agentPanel.classList.toggle('open');if(agentPanel.classList.contains('open'))agentInput.focus()};
+document.getElementById('agentClose').onclick=()=>agentPanel.classList.remove('open');
+function addBubble(text,type='bot',extra={}){
+  const el=document.createElement('div');el.className='bubble '+type;el.textContent=text;
+  if(extra.evidence?.length){const e=document.createElement('div');e.className='agent-evidence';e.textContent=extra.evidence.map(x=>`${x.label}: ${x.value}`).join(' · ');el.appendChild(e)}
+  if(extra.links?.length){const box=document.createElement('div');box.className='agent-links';extra.links.forEach(x=>{const a=document.createElement('a');a.href=x.url;a.target='_blank';a.rel='noopener';a.textContent='↗ '+x.title;box.appendChild(a)});el.appendChild(box)}
+  agentChat.appendChild(el);agentChat.scrollTop=agentChat.scrollHeight;return el;
+}
+async function askAgent(question){
+  const q=(question||'').trim();if(!q)return;agentPanel.classList.add('open');addBubble(q,'user');agentInput.value='';agentSend.disabled=true;
+  const waiting=addBubble('최신 데이터를 확인하고 계산 중입니다…');
+  try{const r=await fetch('/api/ask',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({question:q})});const d=await r.json();waiting.remove();addBubble(d.answer||d.error||'답변을 만들지 못했습니다.','bot',d)}
+  catch(e){waiting.textContent='질의 처리 중 오류가 발생했습니다: '+e.message}
+  finally{agentSend.disabled=false;agentInput.focus()}
+}
+document.getElementById('agentForm').onsubmit=e=>{e.preventDefault();askAgent(agentInput.value)};
+document.querySelectorAll('.suggestion').forEach(b=>b.onclick=()=>askAgent(b.textContent));
 </script>
 </body>
 </html>
